@@ -1,0 +1,366 @@
+PackratFormat: 1.4
+PackratVersion: 0.4.8.1
+RVersion: 3.4.0
+Repos: CRAN=https://cran.rstudio.com/,
+    CRANextra=http://www.stats.ox.ac.uk/pub/RWin
+
+Package: BH
+Source: CRAN
+Version: 1.66.0-1
+
+Package: DBI
+Source: CRAN
+Version: 0.8
+
+Package: R6
+Source: CRAN
+Version: 2.2.2
+
+Package: RColorBrewer
+Source: CRAN
+Version: 1.1-2
+
+Package: Rcpp
+Source: CRAN
+Version: 0.12.15
+Hash: a419463fc86b3ecc7338ae3ac3bbb268
+
+Package: assertthat
+Source: CRAN
+Version: 0.2.0
+
+Package: backports
+Source: CRAN
+Version: 1.1.2
+
+Package: base64enc
+Source: CRAN
+Version: 0.1-3
+
+Package: bindr
+Source: CRAN
+Version: 0.1
+Hash: e3a02070cf705d3ad1c5af1635a515a3
+
+Package: bindrcpp
+Source: CRAN
+Version: 0.2
+Requires: Rcpp, bindr, plogr
+Hash: 2d69ff431a54f6c4a750754b88c7e0af
+
+Package: broom
+Source: CRAN
+Version: 0.4.3
+Requires: dplyr, plyr, psych, reshape2, stringr, tidyr
+
+Package: callr
+Source: CRAN
+Version: 2.0.2
+Requires: R6, assertthat, crayon, debugme, testthat
+
+Package: cellranger
+Source: CRAN
+Version: 1.1.0
+Requires: rematch, tibble
+
+Package: cli
+Source: CRAN
+Version: 1.0.0
+Requires: assertthat, crayon
+
+Package: colorspace
+Source: CRAN
+Version: 1.3-2
+
+Package: crayon
+Source: CRAN
+Version: 1.3.4
+
+Package: curl
+Source: CRAN
+Version: 3.1
+
+Package: dbplyr
+Source: CRAN
+Version: 1.2.1
+Requires: DBI, R6, assertthat, dplyr, glue, purrr, rlang, tibble,
+    tidyselect
+
+Package: debugme
+Source: CRAN
+Version: 1.1.0
+Requires: crayon
+
+Package: dichromat
+Source: CRAN
+Version: 2.0-0
+
+Package: digest
+Source: CRAN
+Version: 0.6.15
+
+Package: dplyr
+Source: CRAN
+Version: 0.7.4
+Requires: Rcpp, plogr, bindrcpp, BH, R6, assertthat, glue, magrittr,
+    pkgconfig, rlang, tibble
+
+Package: evaluate
+Source: CRAN
+Version: 0.10.1
+Requires: stringr
+
+Package: forcats
+Source: CRAN
+Version: 0.3.0
+Requires: magrittr, rlang, tibble
+
+Package: ggplot2
+Source: CRAN
+Version: 2.2.1
+Requires: digest, gtable, lazyeval, plyr, reshape2, scales, tibble
+
+Package: glue
+Source: CRAN
+Version: 1.2.0
+
+Package: gtable
+Source: CRAN
+Version: 0.2.0
+
+Package: haven
+Source: CRAN
+Version: 1.1.1
+Requires: Rcpp, forcats, hms, readr, tibble
+
+Package: highr
+Source: CRAN
+Version: 0.6
+
+Package: hms
+Source: CRAN
+Version: 0.4.1
+Requires: pkgconfig, rlang
+
+Package: htmltools
+Source: CRAN
+Version: 0.3.6
+Requires: Rcpp, digest
+
+Package: httr
+Source: CRAN
+Version: 1.3.1
+Requires: R6, curl, jsonlite, mime, openssl
+
+Package: jsonlite
+Source: CRAN
+Version: 1.5
+
+Package: knitr
+Source: CRAN
+Version: 1.20
+Requires: evaluate, highr, markdown, stringr, yaml
+
+Package: labeling
+Source: CRAN
+Version: 0.3
+
+Package: lazyeval
+Source: CRAN
+Version: 0.2.1
+
+Package: lubridate
+Source: CRAN
+Version: 1.7.3
+Requires: Rcpp, stringr
+
+Package: magrittr
+Source: CRAN
+Version: 1.5
+
+Package: markdown
+Source: CRAN
+Version: 0.8
+Requires: mime
+
+Package: mime
+Source: CRAN
+Version: 0.5
+
+Package: mnormt
+Source: CRAN
+Version: 1.5-5
+
+Package: modelr
+Source: CRAN
+Version: 0.1.1
+Requires: broom, dplyr, lazyeval, magrittr, purrr, tibble, tidyr
+
+Package: munsell
+Source: CRAN
+Version: 0.4.3
+Requires: colorspace
+
+Package: openssl
+Source: CRAN
+Version: 1.0.1
+
+Package: packrat
+Source: CRAN
+Version: 0.4.8-1
+Hash: 6ad605ba7b4b476d84be6632393f5765
+
+Package: pillar
+Source: CRAN
+Version: 1.2.1
+Requires: cli, crayon, rlang, utf8
+
+Package: pkgconfig
+Source: CRAN
+Version: 2.0.1
+
+Package: plogr
+Source: CRAN
+Version: 0.1-1
+Hash: fb19215402e2d9f1c7f803dcaa806fc2
+
+Package: plyr
+Source: CRAN
+Version: 1.8.4
+Requires: Rcpp
+
+Package: praise
+Source: CRAN
+Version: 1.0.0
+
+Package: psych
+Source: CRAN
+Version: 1.7.8
+Requires: mnormt
+
+Package: purrr
+Source: CRAN
+Version: 0.2.4
+Requires: magrittr, rlang, tibble
+
+Package: readr
+Source: CRAN
+Version: 1.1.1
+Requires: Rcpp, BH, R6, hms, tibble
+
+Package: readxl
+Source: CRAN
+Version: 1.0.0
+Requires: Rcpp, cellranger, tibble
+
+Package: rematch
+Source: CRAN
+Version: 1.0.1
+
+Package: reprex
+Source: CRAN
+Version: 0.1.2
+Requires: callr, knitr, rmarkdown, whisker
+
+Package: reshape2
+Source: CRAN
+Version: 1.4.3
+Requires: Rcpp, plyr, stringr
+
+Package: rlang
+Source: CRAN
+Version: 0.2.0
+
+Package: rmarkdown
+Source: CRAN
+Version: 1.9
+Requires: base64enc, evaluate, htmltools, jsonlite, knitr, mime,
+    rprojroot, stringr, yaml
+
+Package: rprojroot
+Source: CRAN
+Version: 1.3-2
+Requires: backports
+
+Package: rstudioapi
+Source: CRAN
+Version: 0.7
+
+Package: rvest
+Source: CRAN
+Version: 0.3.2
+Requires: httr, magrittr, selectr, xml2
+
+Package: scales
+Source: CRAN
+Version: 0.5.0
+Requires: Rcpp, R6, RColorBrewer, dichromat, labeling, munsell, plyr,
+    viridisLite
+
+Package: selectr
+Source: CRAN
+Version: 0.3-2
+Requires: stringr
+
+Package: stringi
+Source: CRAN
+Version: 1.1.6
+
+Package: stringr
+Source: CRAN
+Version: 1.3.0
+Requires: glue, magrittr, stringi
+
+Package: testthat
+Source: CRAN
+Version: 2.0.0
+Requires: R6, cli, crayon, digest, magrittr, praise, rlang, withr
+
+Package: tibble
+Source: CRAN
+Version: 1.4.2
+Requires: cli, crayon, pillar, rlang
+
+Package: tidyr
+Source: CRAN
+Version: 0.8.0
+Requires: Rcpp, dplyr, glue, magrittr, purrr, rlang, stringi, tibble,
+    tidyselect
+
+Package: tidyselect
+Source: CRAN
+Version: 0.2.4
+Requires: Rcpp, glue, purrr, rlang
+
+Package: tidyverse
+Source: CRAN
+Version: 1.2.1
+Requires: broom, cli, crayon, dbplyr, dplyr, forcats, ggplot2, haven,
+    hms, httr, jsonlite, lubridate, magrittr, modelr, purrr, readr,
+    readxl, reprex, rlang, rstudioapi, rvest, stringr, tibble, tidyr,
+    xml2
+
+Package: utf8
+Source: CRAN
+Version: 1.1.3
+
+Package: viridisLite
+Source: CRAN
+Version: 0.3.0
+
+Package: whisker
+Source: CRAN
+Version: 0.3-2
+
+Package: withr
+Source: CRAN
+Version: 2.1.1
+
+Package: xml2
+Source: CRAN
+Version: 1.2.0
+Requires: Rcpp
+
+Package: yaml
+Source: CRAN
+Version: 2.1.17
