@@ -3,7 +3,8 @@ library(readxl) #reading excel files
 library(foreign)  # read .dbf in readSitesEqAreaData.R
 library(reshape2) # melt
 library(scales) # time data in ggplot
-
+library(gridExtra) # For multipanel plots
+library(minpack.lm) # for non linear diffusion model
 
 
 
