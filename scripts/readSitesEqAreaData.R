@@ -37,12 +37,11 @@ for (i in 1:length(fileNames)){  # for each file
 # ;x needed to have function report whole df.
 mylist2 <- lapply(mylist1, function(x) {names(x) <- sub(pattern = "GNIS_Name", replacement = "Lake_Name", x = names(x));x})
 
-# Add 'section' as column, if not already present.  This happens in stratified equal area designs
+# Add 'section' as column, should have been created in grts survey design, but wasn't.
+# For a stratified-unequal design, section == mdcaty.  This is a temporary fix, should
+# inspect survey desing script. 
 mylist3 <- lapply(mylist2, function(x){
-  if("section" %in% names(x))  # if 'section' already exists
-    x  # then report original df
-  else 
-    cbind(x, section = NA) # if 'section' doesn't exist, report new column of NAs
+  mutate(x, section = mdcaty)
 })
                                           
 # 4.  Arrange columns in identical way to facilitate rbind

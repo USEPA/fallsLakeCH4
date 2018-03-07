@@ -93,8 +93,8 @@ names(fChemAgW) = gsub(pattern = c("\\(| |#|)|/|-"),
 
 
 # Merge with eqAreaData
-str(eqAreaData) #1426 observations
-eqAreaData <- merge(fChemAgBySiteW, eqAreaData, all = TRUE)
+str(eqAreaData) # 72 observations
+eqAreaData <- merge(fChemAgW, eqAreaData, all = TRUE)
 str(eqAreaData) # Still 1426, merged as expected
 
 # Look for missing data
