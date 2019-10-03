@@ -4,14 +4,18 @@
 
 # READ AND FORMAT WATER CHEM---------------
 # Data retrieved from L drive on 11/09/2016
-chem17 <- read_excel("O:/Public/JTWalker/ENSB Methane/waterChemistry/2017_ESF-EFWS_NutrientData_Updated01292018_SS.xlsx", 
+chem17 <- read_excel(paste0("C:/Users/JBEAULIE/OneDrive - Environmental Protection Agency (EPA)/ENSB Methane/waterChemistry/",
+                            "2017_ESF-EFWS_NutrientData_Updated02112019_SS_CTNWorked03192019.xlsx"), 
                    sheet = "2017DATA", skip = 1)
 
-chem18 <- read_excel("O:/Public/JTWalker/ENSB Methane/waterChemistry/2018_ESF-EFWS_NutrientData_Updated02222018_SS.xlsx", 
+chem18 <-  read_excel(paste0("C:/Users/JBEAULIE/OneDrive - Environmental Protection Agency (EPA)/ENSB Methane/waterChemistry/",
+                             "2018_ESF-EFWS_NutrientData_Updated03012019_SS_CTNUpdate04012019.xlsx"),
                      sheet = "2018DATA", skip = 1)
 
-chem <- merge(chem17, chem18, all = TRUE)
-
+chem <- bind_rows(chem17, chem18)
+dim(chem17) # 44851 46
+dim(chem18) # 45986 45
+dim(chem) # 90837, 46   44851+45986=90837
 
 # Replace spaces and unusual characters in column names with ".".
 # Note that "(" is a special character in R.  Must precdede with \\ for
@@ -28,12 +32,15 @@ chem <- rename(chem,
          unit)
 
 # Check units and analytes
-distinct(chem, unit) # all ug, except mg C/L for TOC
-distinct(chem, analyte) # all ug, except mg C/L for TOC
+distinct(chem, unit) # all ug, except mg C/L for TOC and mg N/L for TN
+distinct(chem, analyte) # 
 
 
 #############################################
 # Pull out Falls Lake data
+# Both FL and FL.53 in Lake_Name field.
+# FL.53 is of no consequence
+
 fChem <- filter(chem, Lake_Name == "FL")
              
 # Change 'FL' to 'Falls Lake' 
@@ -52,16 +59,28 @@ ggplot(filter(fChem, type == "BLK"), aes(rdate, finalConc)) +
 repIdentifier <- filter(fChem, type == "DUP") %>% # PUll out unique ID
   select(-finalConc, -unit, -type) # omit these field
 
+# Reduce to only dups and associated unknowns
 repsAll <- merge(repIdentifier, # Pull out unknown and dup value
                  filter(fChem, type == "UNK" | type == "DUP"))
 
+dim(filter(fChem, type == "UNK" | type == "DUP")) #1403, 7
+dim(repIdentifier) # 269, 4
+dim(repsAll) #679 7
+
+
 # Dups agree very well.  
-ggplot(repsAll, aes(rdate, finalConc)) + # plot
+ggplot(filter(repsAll, analyte == "TN"),
+       aes(rdate, finalConc)) + # plot
   geom_point() + 
-  facet_wrap(~analyte + siteID, scales = "free")
+  facet_wrap(~siteID + analyte, scales = "free")
+
+ggplot(filter(repsAll, analyte == "TP"),
+       aes(rdate, finalConc)) + # plot
+  geom_point() + 
+  facet_wrap(~siteID + analyte, scales = "free")
 
 # Aggregate across dups.
-fChemAgg <- filter(fChem, type != "BLK", type != "SPK") %>% # remove spike and dups
+fChemAgg <- filter(fChem, type != "BLK", type != "SPK", siteID != "LAB") %>% # remove spike and dups
   group_by(rdate, Lake_Name, siteID, analyte, unit) %>% # grouping variable
   summarize(finalConc = mean(finalConc)) %>% # calculate mean across groups
   ungroup() # remove grouping structure
@@ -76,6 +95,8 @@ fChemAgg <- filter(fChem, type != "BLK", type != "SPK") %>% # remove spike and d
 #    lake-wide mean.
 
 # Take a quick peak for obvious problems
+#  siteID == 991 | 992?  weird, but this is in 10-25-2017 Falls Lake CoC
+# siteID == LAB ?
 ggplot(fChemAgg, aes(rdate, finalConc)) + 
   geom_point(aes(color = siteID)) + 
   facet_wrap(~analyte, scales = "free_y") +

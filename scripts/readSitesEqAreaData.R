@@ -13,7 +13,7 @@
 # O:\Public\JTWalker\ENSB Methane\Shapefiles
 # directory.
 
-rootDir <- "O:/Public/JTWalker/ENSB Methane/Shapefiles/"
+rootDir <- "C:/Users/JBEAULIE/OneDrive - Environmental Protection Agency (EPA)/ENSB Methane/Shapefiles"
 
 fileNames <- list.files(path = rootDir, 
                         pattern = "SitesEqAreaData.dbf", # file names containing this pattern

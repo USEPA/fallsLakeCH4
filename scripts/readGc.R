@@ -1,15 +1,12 @@
 
 
 # READ GC DATA----------------
-# Read individual files. 
+# RTP excel files first
 
-# 1. Create a list of files to read in.  Completed data files are at 
-# O:\Public\JTWalker\ENSB Methane\gcData
-# directory.
+# 1. Create a list of files to read in. 
+rootDir <- "C:/Users/JBEAULIE/OneDrive - Environmental Protection Agency (EPA)/ENSB Methane/gcData/"
 
-rootDir <- "O:/Public/JTWalker/ENSB Methane/gcData/"
-
-fileNames <- list.files(path = rootDir) # look in all subdirectories
+fileNames <- list.files(path = rootDir, pattern = "*.xlsx") # look in all subdirectories
 
 
 # 2.  Read in files
@@ -23,25 +20,96 @@ for (i in 1:length(fileNames)){  # for each file
 }
 
 # 3.  Coerce list into dataframe via rbind
-gas.all <- do.call("rbind", mylist1)  # Coerces list into dataframe.
+gc.rtp <- do.call("rbind", mylist1)  # Coerces list into dataframe.
 
 # 4.  Remove ugly characters from column names
-names(gas.all) = gsub(pattern = c("\\(| |#|%|)|/|-|\\+"), replacement = ".", x = names(gas.all))
-names(gas.all) = tolower(names(gas.all))
+names(gc.rtp) = gsub(pattern = c("\\(| |#|%|)|/|-|\\+"), replacement = ".", x = names(gc.rtp))
+names(gc.rtp) = tolower(names(gc.rtp))
 
-# Format gas data
-gas.all <- filter(gas.all,
-                  !(grepl("STD", gas.all$sample)), # remove standards
-                  !(grepl("Std", gas.all$sample)), # remove standards
-                  !(grepl("std", gas.all$sample)), # remove standards
-                  sample != "", # exclude blank rows
-                  !(grepl("blank", gas.all$sample)), # remove blanks
-                  !(grepl("Blank", gas.all$sample)), # remove blanks
-                  !(grepl("BLANK", gas.all$sample))) %>% # remove blanks  
-  rename(ch4.ppm = ch4....or.ppm.) # WILL NEED TO UPDATE 
+# Format gc data
+gc.rtp <-  gc.rtp %>%   
+  mutate(sample = toupper(sample), # make sure all characters in sample code are uppercase
+         ch4.ppm = ifelse(grepl(pattern = "BT", x = sample), # if bubble trap
+                          ch4....or.ppm. * 10000, # convert % to ppm
+                          ch4....or.ppm.)) %>% # else already ppm (DG or AIR)
+  filter(# (?i) not case sensitive. Shouldn't be needed (see above), but cool!
+         # https://stackoverflow.com/questions/8361589/turning-off-case-sensitivity-in-r
+         !(grepl("(?i)STD", gc.rtp$sample)), # remove standards
+         sample != "", # exclude blank rows
+         !(grepl("(?i)BLANK", gc.rtp$sample))) %>% # remove blanks
+  select(sample, ch4.ppm)
 
 # Check for duplicates.  Should be none.
-filter(gas.all, duplicated(sample,fromLast = TRUE) | duplicated(sample,fromLast = FALSE)) %>% arrange(sample)
+filter(gc.rtp, duplicated(sample,fromLast = TRUE) | duplicated(sample,fromLast = FALSE)) %>% arrange(sample)
+
+
+# Now read in Cincy .txt files
+# GC DATA---------------
+gc.cin1 <- read.table(paste0(rootDir, "gcMasterFile2017updated2019-08-28.txt"),
+                                col.names=c("sample", "n2o.ppm", "co2.ppm", "ch4.ppm", "flag.n2o",
+                                            "flag.co2", "flag.ch4", "o2.ar.percent", "n2.perc", "o2.chk",
+                                            "flag.n2", "flag.o2.ar"),
+                                stringsAsFactors = FALSE,
+                                #colClasses=c("character", rep("num", 3), rep("int", 3), rep("num", 2),
+                                #             rep("logi", 2)),
+                                skip=1) 
+
+gc.cin2 <- read.table(paste0(rootDir, "gcMasterFile2018updated2019-04-09.txt"),
+                                col.names=c("sample", "ch4.ppm", "co2.ppm", "n2o.ppm", "flag.n2o",
+                                            "flag.co2", "flag.ch4"),
+                                stringsAsFactors = FALSE,
+                                #colClasses=c("character", rep("num", 3), rep("int", 3), rep("num", 2),
+                                #             rep("logi", 2)),
+                                skip=1)
+
+# Merge and format cincy data
+gc.cin <- bind_rows(select(gc.cin1, sample, 
+                           n2o.ppm, co2.ppm, ch4.ppm, 
+                           flag.n2o, flag.co2, flag.ch4,
+                           o2.ar.percent, n2.perc,
+                           flag.n2, flag.o2.ar),
+                    select(gc.cin2, sample, 
+                           n2o.ppm, co2.ppm, ch4.ppm, 
+                           flag.n2o, flag.co2, flag.ch4)) %>%
+  mutate(sample = toupper(sample)) %>% # uppercase sample IDs
+  filter(grepl("FL", sample)) %>% # extract Falls Lake samples
+  mutate(sample = replace(sample, 
+                          sample == "082118FL07_2", # "DG" not entered
+                          "082118FL07_DG2"),
+         sample = ifelse(nchar(sample) == 12,
+                         paste0(substr(sample, 1, 4), # mmdd
+                                "2018.", #yy.
+                                substr(sample, 5, 6), # FL
+                                ".",
+                                substr(sample, 7, 8), # site
+                                ".",
+                                substr(sample, 10, 11), # sample type
+                                ".",
+                                substr(sample, 12, 12)), # replicate
+                         ifelse(nchar(sample) == 14,
+                                paste0(substr(sample, 1, 4), # mmddyy
+                                       "2018.", 
+                                       substr(sample, 7, 8), # FL
+                                       ".",
+                                       substr(sample, 9, 10), # site
+                                       ".",
+                                       substr(sample, 12, 13), # sample type
+                                       ".",
+                                       substr(sample, 14, 14)), #replicate
+                                NA))) # if none of these conditions are met
+
+# Check for duplicates.
+filter(gc.cin, duplicated(sample,fromLast = TRUE) | duplicated(sample,fromLast = FALSE)) %>% 
+  arrange(sample)
+
+
+
+# Merge CIN and RTP gc data
+gc.all <- bind_rows(gc.rtp, gc.cin)
+dim(gc.rtp) # 52, 2
+dim(gc.cin) # 269, 11
+dim(gc.all) # 321, 11, 269+52 = 321, yeah
+
 
 # PREPARE EXETAINER CODES----------------------
 # Extract from eqAreaData
