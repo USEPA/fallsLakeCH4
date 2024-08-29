@@ -1,5 +1,9 @@
+library(fs)
 library(tidyverse) #ggplot, dplyr, and others
 library(readxl) #reading excel files
+library(janitor)
+library(lutz)
+
 library(foreign)  # read .dbf in readSitesEqAreaData.R
 library(reshape2) # melt
 library(scales) # time data in ggplot
