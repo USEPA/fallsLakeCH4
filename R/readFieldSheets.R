@@ -1,7 +1,7 @@
 # READ FIELD SHEETS
-paths <- paste0("C:\\Users\\JBEAULIE\\Environmental Protection Agency (EPA)\\",
-                "SuRGE Survey of Reservoir Greenhouse gas Emissions - Documents\\",
-                "data\\RTP\\CH4_1033_Falls_Lake")
+get_field_sheets <- function() {
+
+paths <- "data/field_sheets/surge_format"
 
 # 1. Create a list of file paths where the data are stored.  
 # Function for reading 'data' tab of surgeData files.
@@ -9,13 +9,13 @@ paths <- paste0("C:\\Users\\JBEAULIE\\Environmental Protection Agency (EPA)\\",
 get_data_sheet <- function(paths){
   #d <-  
   fs::dir_ls(path = paths, # see above
-             regexp = 'surgeData', # file names containing this pattern
+             regexp = 'surgeData1033', # file names containing this pattern
              recurse = TRUE) %>% # look in all subdirectories
     .[!grepl(c(".pdf|.docx"), .)] %>% # remove pdf and .docx review files
-    #.[53] %>%
+    #.[12:13] %>%
     # map will read each file in fs_path list generated above
     # imap passes the element name (here, the filename) to the function
-    purrr::imap(~read_excel(.x, skip = 1, sheet = "data", 
+    purrr::imap(~readxl::read_xlsx(.x, skip = 1, sheet = "data", 
                             na = c("NA", "", "N/A", "n/a")) %>%
                   # Assign the filename to the visit column for now
                   mutate(visit = .y,
@@ -34,11 +34,8 @@ get_data_sheet <- function(paths){
                                            str_detect(visit, "September2018") ~ 13,
                                            str_detect(visit, "October2018") ~ 14,
                                            str_detect(visit, "November2018") ~ 15,
-                                           TRUE ~ 999999999))) %>% # check for this value in final)) %>% # assign file name
-    # remove empty dataframes.  Pegasus put empty Excel files in each lake
-    # folder at beginning of season.  These files will be populated eventually,
-    # but are causing issues with code below
-    purrr::discard(~ nrow(.x) == 0) %>% 
+                                           TRUE ~ 999999999)) # check for this value in final close mutate
+                                          ) %>% # close imap
     # format data
     map(., function(x) { 
       janitor::clean_names(x) %>%
@@ -61,6 +58,8 @@ get_data_sheet <- function(paths){
                across(contains("extn"), ~ as.character(.)),
                across(contains("depth"), ~round(.x, 1))) %>% # round to nearest tenth of meter
         # Format date and time objects
+        # Time recorded from LGR, which is eastern. Confirmed by comparing LGR times
+        # recorded on field sheets with GPS data recorded in UTC.
         mutate(across(contains("date"), ~ as.Date(.x, format = "%m.%d.%Y")), # convert date to as.Date
                across(contains("time"), ~ format(.x, format = "%H:%M:%S")), # convert time to character
                tz = lutz::tz_lookup_coords(lat, long, warn = FALSE)) %>% # this gets tz based on location
@@ -93,7 +92,7 @@ unique(fld_sheet$lake_id)
 unique(fld_sheet$site_id)
 unique(fld_sheet$visit)
 janitor::get_dupes(fld_sheet %>% select(lake_id, site_id, visit)) # no dups
-dim(fld_sheet) #359, 82  [8/28/2024]
+dim(fld_sheet) #449, 82  [1/6/2025]
 
 # 4. Function to read 'dissolved.gas' tab of surgeData file.
 get_dg_sheet <- function(paths){
@@ -103,7 +102,7 @@ get_dg_sheet <- function(paths){
              recurse = TRUE) %>% # look in all subdirectories
     .[!grepl(c(".pdf|.docx"), .)] %>% # remove pdf and .docx review files
     # map will read each file in fs_path list generated above
-    purrr::imap(~ read_excel(., skip = 1, sheet = "dissolved.gas", 
+    purrr::imap(~ readxl::read_xlsx(., skip = 1, sheet = "dissolved.gas", 
                              na = c("NA", "", "N/A", "n/a")) %>%
     # Assign the filename to the visit column, then map visit number
       # based on date in filename.
@@ -139,11 +138,11 @@ get_dg_sheet <- function(paths){
     map_dfr(., identity) # rbinds into one df
 }
 
-# 5. Write data object for SuRGE
-saveRDS(object = fld_sheet, 
-        file = paste0("C:\\Users\\JBEAULIE\\Environmental Protection Agency (EPA)\\",
-                      "SuRGE Survey of Reservoir Greenhouse gas Emissions - Documents\\",
-                      "data\\RTP\\CH4_1033_Falls_Lake\\falls_lake_fld_sheet.rds"))
+# # 5. Write data object for SuRGE
+# saveRDS(object = fld_sheet, 
+#         file = paste0("C:\\Users\\JBEAULIE\\Environmental Protection Agency (EPA)\\",
+#                       "SuRGE Survey of Reservoir Greenhouse gas Emissions - Documents\\",
+#                       "data\\RTP\\CH4_1033_Falls_Lake\\falls_lake_fld_sheet.rds"))
 
 # 6.  Read dissolved gas sheet
 dg_sheet <- get_dg_sheet(paths = paths)
@@ -265,4 +264,4 @@ dim(all_exet) #2713
 #  eqAreaData[adjChmVol, "chmVol.L"] = 
 #    mean(eqAreaData[eqAreaData$Lake_Name == "Pleasant Hill Lake", "chmVol.L"], na.rm = TRUE)
 
- 
+}
