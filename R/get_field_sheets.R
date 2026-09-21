@@ -44,13 +44,36 @@ get_data_sheet <- function(paths){
         rename_with(~gsub("phyc", "phycocyanin_sonde", .), #specify sonde
                     contains("phyc")) %>%
         # format lake_id and site_id.  See Wiki
-        mutate(lake_id = as.character(lake_id) %>%
-                 tolower(.) %>% # i.e. Lacustrine -> lacustrine
-                 str_remove(., "ch4_") %>% # remove any ch4_ from lake_id
-                 str_remove(., "^0+"), #remove leading zeroes i.e. 078->78
-               site_id = as.numeric(gsub(".*?([0-9]+).*", "\\1", site_id)),
+        mutate(site_id = as.numeric(gsub(".*?([0-9]+).*", "\\1", site_id)),
                long = case_when(long > 0 ~ long * -1, # longitude should be negative
                                 TRUE ~ long),
+              # Remove a leading mmddyyyy date and prefix the visit number.
+               across(
+                 c(
+                   trap_extn1,
+                   trap_extn2,
+                   trap_extn3,
+                   air_extn_1,
+                   air_extn_2,
+                   air_extn_3
+                 ),
+                 ~ stringr::str_replace_all(
+                   stringr::str_replace(
+                     case_when(
+                       is.na(.) ~ NA_character_,
+                       stringr::str_detect(as.character(.), "^\\d{8}") ~ toupper(paste0(
+                         "visit.",
+                         visit,
+                         stringr::str_remove(as.character(.), "^\\d{8}")
+                       )),
+                       TRUE ~ toupper(paste0("visit.", visit, ".", as.character(.)))
+                     ),
+                     "\\.0([123])$",
+                     ".\\1"
+                   ),
+                   c("A$" = "1", "B$" = "2", "C$" = "3")
+                 )
+               ),
                # Empty columns cause data-class conflicts; make classes identical
                across(c(lat, long), ~ as.numeric(.)),
                across(contains("comment"), ~ as.character(.)),
@@ -83,15 +106,15 @@ get_data_sheet <- function(paths){
         rename_with(~sub("flag", "flags", .),
                     .cols = contains("flag"))
     }) %>%
-    map_dfr(., bind_rows) # rbinds into one df
+    map_dfr(., bind_rows) %>%
+    select(-lake_id) # remove lake identifier from field-sheet output
 }
 
 # 3. Read 'data' tab of surgeData files.
 fld_sheet <- get_data_sheet(paths = paths) 
-unique(fld_sheet$lake_id)
 unique(fld_sheet$site_id)
 unique(fld_sheet$visit)
-janitor::get_dupes(fld_sheet %>% select(lake_id, site_id, visit)) # no dups
+janitor::get_dupes(fld_sheet %>% select(site_id, visit)) # no dups
 dim(fld_sheet) #449, 82  [1/6/2025]
 
 # 4. Function to read 'dissolved.gas' tab of surgeData file.
@@ -130,12 +153,29 @@ get_dg_sheet <- function(paths){
     # format data
     map(., function(x){
       janitor::clean_names(x) %>%
-        # Assign value to visit based on the Excel filename
-        mutate(# format lake_id and site_id.  See Wiki
-               lake_id = as.numeric(lake_id),
-               site_id = as.numeric(gsub(".*?([0-9]+).*", "\\1", site_id)))
+        # Format site and dissolved-gas extension identifiers.
+        mutate(
+          site_id = as.numeric(gsub(".*?([0-9]+).*", "\\1", site_id)),
+          dg_extn = stringr::str_replace_all(
+            stringr::str_replace(
+              dplyr::case_when(
+                is.na(dg_extn) ~ NA_character_,
+                stringr::str_detect(as.character(dg_extn), "^\\d{8}") ~ toupper(paste0(
+                  "visit.",
+                  visit,
+                  stringr::str_remove(as.character(dg_extn), "^\\d{8}")
+                )),
+                TRUE ~ toupper(paste0("visit.", visit, ".", as.character(dg_extn)))
+              ),
+              "\\.0([123])$",
+              ".\\1"
+            ),
+            c("A$" = "1", "B$" = "2", "C$" = "3")
+          )
+        )
     }) %>%
-    map_dfr(., identity) # rbinds into one df
+    map_dfr(., identity) %>%
+    select(-lake_id) # remove lake identifier from dissolved-gas output
 }
 
 # # 5. Write data object for SuRGE
@@ -151,30 +191,30 @@ dg_sheet %>% print(n=Inf)
 
 dg_sheet %>% filter(is.na(atm_pressure) | is.na(air_temperature) | 
                       is.na(water_vol) | is.na(air_vol)) %>%
-  distinct(lake_id) %>% print(n=Inf)
+  distinct(site_id) %>% print(n=Inf)
 
-######NOT UPDATED FROM SuRGE!!!!!!!!!!!!!!
-# create object containing all exetainer codes for readGc.R
-all_exet <- bind_rows(
-  dg_sheet %>% # DG exetainers
-    select(lake_id, site_id, visit, dg_extn) %>%
-    rename(sample = dg_extn) %>%
-    mutate(type = "dg"),
-  fld_sheet %>% # air + trap exetainers
-    select(lake_id, site_id, visit, trap_deply_date, matches("trap_extn|air_extn")) %>%
-    select(!contains("notes")) %>%
-    pivot_longer(!c(lake_id, site_id, visit, trap_deply_date), 
-                 values_to = "sample") %>%
-    mutate(sample = toupper(sample),
-           type = case_when(grepl("trap", name) ~ "trap",
-                            grepl("air", name) ~ "air",
-                            TRUE ~ "Fly you fools")) %>%
-    select(-name) %>%
-    filter(!is.na(sample))
-) %>%
-  mutate(trap_deply_date = case_when(type == "trap" ~ trap_deply_date,
-                                     TRUE ~ dttr2::NA_Date_))
-dim(all_exet) #2713
+# ######NOT UPDATED FROM SuRGE!!!!!!!!!!!!!!
+# # create object containing all exetainer codes for readGc.R
+# all_exet <- bind_rows(
+#   dg_sheet %>% # DG exetainers
+#     select(lake_id, site_id, visit, dg_extn) %>%
+#     rename(sample = dg_extn) %>%
+#     mutate(type = "dg"),
+#   fld_sheet %>% # air + trap exetainers
+#     select(lake_id, site_id, visit, trap_deply_date, matches("trap_extn|air_extn")) %>%
+#     select(!contains("notes")) %>%
+#     pivot_longer(!c(lake_id, site_id, visit, trap_deply_date), 
+#                  values_to = "sample") %>%
+#     mutate(sample = toupper(sample),
+#            type = case_when(grepl("trap", name) ~ "trap",
+#                             grepl("air", name) ~ "air",
+#                             TRUE ~ "Fly you fools")) %>%
+#     select(-name) %>%
+#     filter(!is.na(sample))
+# ) %>%
+#   mutate(trap_deply_date = case_when(type == "trap" ~ trap_deply_date,
+#                                      TRUE ~ dttr2::NA_Date_))
+# dim(all_exet) #2713
   
   
   
@@ -264,4 +304,7 @@ dim(all_exet) #2713
 #  eqAreaData[adjChmVol, "chmVol.L"] = 
 #    mean(eqAreaData[eqAreaData$Lake_Name == "Pleasant Hill Lake", "chmVol.L"], na.rm = TRUE)
 
+  field_sheets <- list(fld_sheet = fld_sheet,
+                       dg_sheet = dg_sheet)
+  return(field_sheets)
 }
