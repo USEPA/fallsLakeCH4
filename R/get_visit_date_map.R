@@ -5,19 +5,35 @@ get_visit_date_map <- function() {
       ~sample_date , ~visit ,
       "2017-09-06" ,      1 ,
       "2017-09-07" ,      1 ,
+      # Added after inspecting unmatched chlorophyll dates; nearest mapped dates indicate visit 1.
+      "2017-09-08" ,      1 ,
       "2017-10-18" ,      2 ,
       "2017-10-19" ,      2 ,
       "2017-10-20" ,      2 ,
+      # Added after inspecting unmatched chlorophyll dates; nearest mapped dates indicate visit 2.
+      "2017-10-21" ,      2 ,
+      # Added after inspecting unmatched chlorophyll dates; nearest mapped dates indicate visit 3.
+      "2017-11-27" ,      3 ,
       "2017-11-28" ,      3 ,
       "2017-11-29" ,      3 ,
+      # Added after inspecting unmatched chlorophyll dates; nearest mapped dates indicate visit 4.
+      "2018-01-11" ,      4 ,
       "2018-01-12" ,      4 ,
       "2018-01-13" ,      4 ,
+      # Added after inspecting unmatched chlorophyll dates; nearest mapped dates indicate visit 5.
+      "2018-01-23" ,      5 ,
       "2018-01-24" ,      5 ,
       "2018-01-25" ,      5 ,
+      # Added after inspecting unmatched chlorophyll dates; nearest mapped dates indicate visit 6.
+      "2018-02-12" ,      6 ,
       "2018-02-13" ,      6 ,
       "2018-02-14" ,      6 ,
+      # Added after inspecting unmatched chlorophyll dates; nearest mapped dates indicate visit 7.
+      "2018-03-12" ,      7 ,
       "2018-03-13" ,      7 ,
       "2018-03-14" ,      7 ,
+      # Added after inspecting unmatched chlorophyll dates; nearest mapped dates indicate visit 8.
+      "2018-04-03" ,      8 ,
       "2018-04-04" ,      8 ,
       "2018-04-05" ,      8 ,
       "2018-05-22" ,      9 ,

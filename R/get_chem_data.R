@@ -2,7 +2,8 @@
 get_chem_data <- function(
   chem_data_2017_file,
   chem_data_2018_file,
-  toc_data_file
+  toc_data_file,
+  visit_date_map
 ) {
 
   # READ NUTRIENTS----
@@ -36,7 +37,19 @@ get_chem_data <- function(
       site_id = case_when(
         sample_type == "BLK" ~ NA_integer_,
         TRUE ~ as.numeric(site_id) # will give warning, OK
+      ),
+      # COC confirms site 40 was a typo; the correct site_id is 44.
+      site_id = case_when(
+        site_id == 40 ~ 44,
+        TRUE ~ site_id
       )
+    ) %>%
+    # This sample wasn't coded correctly in the nutrient data report. We have data from all sites sampled that
+    # day. This might be a blank. Remove the observation.
+    filter(
+      !(sample_date == as.Date("2018-03-14") &
+          is.na(site_id) &
+          sample_type == "DUP")
     )
 
   # READ TOC-TN DATA----
@@ -55,7 +68,9 @@ get_chem_data <- function(
     ) %>%
     filter(
       grepl("_FL_", sampid, ignore.case = TRUE),
-      sampid != "20171020_FL_50_UNK" # weird dup, don't need
+      sampid != "20171020_FL_50_UNK", # weird duplicate; not needed
+      # Exclude this sample because it was not documented in the COC and its identity is unknown.
+      sampid != "20171020_FL_44_UNK"
     ) %>%
     tidyr::separate(
       sampid,
@@ -93,6 +108,11 @@ get_chem_data <- function(
       site_id = case_when(
         sampid == "20180404_FL_15-1_UKN" ~ 15,
         TRUE ~ as.numeric(site_part_2) # will give warning, OK
+      ),
+      # COC confirms site 40 was a typo; the correct site_id is 44.
+      site_id = case_when(
+        site_id == 40 ~ 44,
+        TRUE ~ site_id
       ),
       tn = case_when(
         tn == 1e+16 ~ NA_real_, # place holder for not analyzed
@@ -235,7 +255,14 @@ get_chem_data <- function(
     rename_with(
       ~ sub("_unit$", "_units", .x),
       ends_with("_unit")
-    )
+    ) %>%
+    mutate(
+      # Assign each chemistry observation to a visit by matching sample_date to the visit-date map.
+      visit = visit_date_map$visit[
+        match(sample_date, visit_date_map$sample_date)
+      ]
+    ) %>%
+    select(-sample_date) # remove sample_date since we have visit
   
   return(chem_data)
 }

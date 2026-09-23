@@ -27,12 +27,14 @@ tar_option_set(
   )
 )
 
+# SOURCE SCRIPTS----
 # Run the R scripts in the R/ folder with your custom functions:
 source("R/get_chlorophyll_data.R")
 source("R/get_chem_data.R")
 source("R/get_field_sheets.R")
 source("R/get_visit_date_map.R")
 source("R/get_gc_data.R")
+source("R/merge_data.R")
 
 
 # TARGETS PIPELINE----
@@ -57,7 +59,8 @@ tar_target(
   name = chlorophyll_data,
   command = get_chlorophyll_data(
     epa_chlorophyll_data_file = epa_chlorophyll_data_file,
-    bsa_chlorophyll_data_file = bsa_chlorophyll_data_file
+    bsa_chlorophyll_data_file = bsa_chlorophyll_data_file,
+    visit_date_map = visit_date_map
   )
   ),
 
@@ -79,7 +82,8 @@ tar_target(
     command = get_chem_data(
       chem_data_2017_file = chem_data_2017_file,
       chem_data_2018_file = chem_data_2018_file,
-      toc_data_file = toc_data_file
+      toc_data_file = toc_data_file,
+      visit_date_map = visit_date_map
     )
   ),
 
@@ -88,31 +92,35 @@ tar_target(
     name = rtp_gc_data_file,
     command = "data/gc_data/RTP_GC Data summary_191213.xlsx"
   ),
+
   tar_file(
-    name = epa_gc_data_file_1,
-    command = "data/gc_data/gcMasterFile2017updated2019-08-28.txt"
-  ),
-  tar_file(
-    name = epa_gc_data_file_2,
+    name = epa_gc_data_file,
     command = "data/gc_data/gcMasterFile2018updated2019-04-09.txt"
   ),
-  # tar_target(
-  #   name = gc_data,
-  #   command = get_gc_data(
-  #     visit_date_map = visit_date_map,
-  #     rtp_gc_data_file = rtp_gc_data_file,
-  #     epa_gc_data_file_1 = epa_gc_data_file_1,
-  #     epa_gc_data_file_2 = epa_gc_data_file_2
-  #   )
-  # ),
+  tar_target(
+    name = gc_data,
+    command = get_gc_data(
+      visit_date_map = visit_date_map,
+      rtp_gc_data_file = rtp_gc_data_file,
+      epa_gc_data_file = epa_gc_data_file
+    )
+  ),
 
-
-
-
-
-  # a list containing "fld_sheet" and "dg_sheet"
+  ## field sheets---- 
   tar_target(
     name = field_sheets,
     command = get_field_sheets() # no argument needed since the function reads in the files from the data folder
-)
+  ),
+
+  # MUNGE DATA----
+  ## merge data----
+  tar_target(
+    name = dat_raw,
+    command = merge_data(
+      field_sheets = field_sheets,
+      gc_data = gc_data,
+      chlorophyll_data = chlorophyll_data,
+      chem_data = chem_data
+    )
+  )
 )

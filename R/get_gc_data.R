@@ -4,10 +4,9 @@
 get_gc_data <- function(
   visit_date_map, 
   rtp_gc_data_file, 
-  epa_gc_data_file_1, 
-  epa_gc_data_file_2
+  epa_gc_data_file
 ){
-# RTP excel files first
+## RTP excel files first----
 
 # 1.  read RTP data
 gc_rtp <- readxl::read_xlsx(
@@ -16,11 +15,14 @@ gc_rtp <- readxl::read_xlsx(
   sheet = "Reduced data",
   skip = 2
 ) %>%
-  dplyr::filter(dplyr::if_any(dplyr::everything(), ~ !is.na(.x))) %>%
-  janitor::clean_names() %>%
+   janitor::clean_names() %>%
   rename(
     sample = description,
     ch4_ppm = reported_concentration_percent_bt_or_ppm_dg_aa
+  ) %>%
+  dplyr::filter(
+    dplyr::if_any(dplyr::everything(), ~ !is.na(.x)),
+  !is.na(ch4_ppm)
   ) %>%
   mutate(
     sample_date = as.Date(substr(sample, 1, 8), format = "%m%d%Y"),
@@ -38,36 +40,25 @@ gc_rtp <- readxl::read_xlsx(
       c("A$" = "1", "B$" = "2", "C$" = "3")
     ),
     ch4_ppm = case_when(
-      grepl(pattern = "BT", x = sample) ~ ch4_ppm * 10000, # convert % to ppm, # if bubble trap
+      grepl(pattern = "BT", x = sample) ~ ch4_ppm * 10000, # convert % to ppm, # if trap trap
       TRUE ~ ch4_ppm
     ) # else already ppm (DG or AIR)
   ) %>%
   filter(
-    !(sample == "01122018.FL.05.BT.1" & ch4_ppm == 696000),
-    !(sample == "01122018.FL.59.BT.4")
+    !(sample == "VISIT.4.FL.05.BT.1" & ch4_ppm == 696000), # 01122018
+    !(sample == "VISIT.4.FL.59.BT.4"), # 01122018
+    # Exclude the RTP sample with an invalid '?' replicate identifier.
+    sample != "VISIT.1.FL.12.DG.?"
   ) %>%
-  select(sample, ch4_ppm)
+  select(sample, ch4_ppm, visit)
 
 # Check for duplicates.  Should be none.
 janitor::get_dupes(gc_rtp, sample)
 
 
-# Now read in Cincy .txt files
-# GC DATA---------------
-gc_cin1 <- readr::read_delim(
-  epa_gc_data_file_1,
-  delim = "\t",
-  col_names = c(
-    "sample", "n2o.ppm", "co2.ppm", "ch4.ppm", "flag.n2o",
-    "flag.co2", "flag.ch4", "o2.ar.percent", "n2.perc", "o2.chk",
-    "flag.n2", "flag.o2.ar"
-  ),
-  skip = 1,
-  show_col_types = FALSE
-)
-
-gc_cin2 <- readr::read_delim(
-  epa_gc_data_file_2,
+## CIN .txt files-----
+gc_cin <- readr::read_delim(
+  epa_gc_data_file,
   delim = "\t",
   col_names = c(
     "sample", "ch4.ppm", "co2.ppm", "n2o.ppm", "flag.n2o",
@@ -75,22 +66,8 @@ gc_cin2 <- readr::read_delim(
   ),
   skip = 1,
   show_col_types = FALSE
-)
-
-# Merge and format cincy data
-gc_cin <- bind_rows(
-  gc_cin1 %>%
-    select(
-      sample,
-      n2o.ppm, co2.ppm, ch4.ppm, o2.ar.percent, n2.perc, 
-      flag.n2o, flag.co2, flag.ch4, flag.n2, flag.o2.ar
-    ),
-  gc_cin2 %>%
-    select(sample, 
-      n2o.ppm, co2.ppm, ch4.ppm, 
-      flag.n2o, flag.co2, flag.ch4
-    )
 ) %>%
+  janitor::clean_names() %>%
   mutate(sample = toupper(sample)) %>% # uppercase sample IDs
   filter(grepl("FL", sample)) %>% # extract Falls Lake samples
   mutate(
@@ -147,63 +124,117 @@ gc_cin %>% janitor::get_dupes(sample) # none
 
 
 
-# Merge CIN and RTP gc data
-gc_all <- bind_rows(gc_rtp, gc_cin)
-dim(gc_rtp) # 444, 2
+## Merge CIN and RTP gc data----
+gc_all <- bind_rows(gc_rtp, gc_cin) %>%
+  mutate(
+    # Extract characters between the third and fourth "." and assign to site_id.
+    site_id = as.numeric(stringr::str_match(sample, "^(?:[^.]*\\.){3}([^.]+)\\.")[, 2]),
+    # create sample_type column
+    sample_type = case_when(
+      grepl("BT", sample) ~ "trap",
+      grepl("AA", sample) ~ "air",
+      grepl("DG", sample) ~ "dissolved",
+      TRUE ~ "other"
+    ),
+    # sample replicate number. Final character of sample
+    rep = (stringr::str_extract(sample, "\\d$"))
+  )
+dim(gc_rtp) # 429, 3
 dim(gc_cin) # 268, 12
-dim(gc_all) # 712, 13, 444+268 = 712, yeah
+dim(gc_all) # 697, 12, 429+268 = 697, yeah
 
-#####################################
-  ###PICK UP HERE. INSPECT VALUES
-# Take a look at values
-ggplot(filter(gc_all, variable == "tp.xtr"), aes(Lake_Name, ch4.ppm/10000)) + 
+
+# INSPECT VALUES------
+  # modify arguments to filter for different sample types, sites, and visits
+gc_all %>%
+  mutate(
+    # convert to factor for plotting
+    across(c(site_id, rep, visit), as.factor)
+  ) %>%
+  select(-contains("flag")) %>%
+  pivot_longer(cols = !c(sample, site_id, visit, rep, sample_type)) %>%
+  filter(!is.na(value), name == "ch4_ppm", sample_type == "dissolved") %>% # change sample type...
+  ggplot(aes(visit, value)) + # value/10000 for trap
   geom_point() +
-  theme(axis.text.x = element_text(angle = 90))
+  facet_wrap(~site_id, scales = "free")
 
-
-
-
-# QA/QC GC REPS--------------
-# Aggregate by Lake_Name and siteID, for now
-# Inspect dups (i.e., sd, CV).  Follow up on dups that don't agree well.
-xtrCodes.gas.g <- filter(xtrCodes.gas,
-                              !is.na(ch4.ppm), # has GC data
-                              !is.na(Lake_Name)) %>% # has lake name
-                              group_by(Lake_Name, siteID, variable) # group for aggregation
-
-xtrCodes.gas.agg <- summarise(xtrCodes.gas.g, 
-                     ch4.sd=sd(ch4.ppm, na.rm=TRUE),
-                     m.ch4.ppm=mean(ch4.ppm, na.rm=TRUE),
-                     ch4.cv=(ch4.sd/m.ch4.ppm) * 100) %>%
-  rename(ch4.ppm = m.ch4.ppm) 
-
-xtrCodes.gas.agg <- ungroup(xtrCodes.gas.agg)  # This removes grouping, which complicates things down the line.
-
-ggplot(xtrCodes.gas.agg, aes(siteID, ch4.ppm)) + # Everything appears to have agg correctly
-  geom_point() +
-  facet_grid(~variable, scales="free_y")
-
-# MERGE RAW GC DATA WITH eqAreaData---------------
-# Merge all gas samples.  Will calculate dissolved concentrations downstream.
-# 1) Need to melt, which requires a data.frame, not a dplyr tbl_df.
-# 2) melt creates a 'variable' column, already have 'variable' column
-# in xtrCodes.gas.agg. Must rename first.
-xtrCodes.gas.agg <- rename(xtrCodes.gas.agg, type = variable) # rename 'variable'
-
-xtrCodes.gas.agg.m <- melt(as.data.frame(xtrCodes.gas.agg), # convert tbl_df to df
-id.vars = c("Lake_Name", "siteID", "type")) # specify id variable
-
-xtrCodes.gas.agg.m <- mutate(xtrCodes.gas.agg.m, type =  # adopt more intuitive names
-                             ifelse(type == "tp.xtr", "trap",
-                                    ifelse(type == "ar.xtr", "air", 
-                                           ifelse(type == "dg.xtr", "dissolved",
-                                                  type))))
+ # flaged values?
+ # these are all air samples with very reasonable results. will retain them.
+ gc_all |>
+   dplyr::filter(
+     dplyr::if_any(
+       dplyr::contains("flag"),
+       ~ !is.na(.x)
+     )
+   ) %>% 
+   print(n=Inf)
   
-xtrCodes.gas.agg.c <- dcast(xtrCodes.gas.agg.m,  # cast
-                            Lake_Name + siteID ~ type + variable) 
+  
+# MAKE CORRECTIONS AND AGGREGATE-----  
+gc_all_corrected_agg <- gc_all %>%
+  filter(
+  # make corrections based on above inspections
+  # air samples
+    !(sample_type == "air" & ch4_ppm > 4),
+    # trap samples
+    !(sample_type == "trap" & site_id == 14 & visit == 4), # CH4 = 0.21
+    !(sample_type == "trap" & site_id == 24 & visit == 4), # CH4 = 0.07
+    !(sample_type == "trap" & site_id == 24 & visit == 9), # CH4 = 0.15
+    !(sample_type == "trap" & site_id == 47 & visit == 14), # CH4 is tiny
+    !(sample_type == "trap" & site_id == 52 & visit == 3), # CH4 is tiny
+    !(sample_type == "trap" & site_id == 54 & visit == 4), # CH4 is tiny
+    !(sample_type == "trap" & site_id == 59 & visit == 4), # CH4 is tiny
+    # dissolved samples
+    !(sample_type == "dissolved" & site_id == 5 & visit == 10 & rep == 3), # much higher than rep
+    !(sample_type == "dissolved" & site_id == 7 & visit == 1 & rep == 2), # much higher than rep
+    !(sample_type == "dissolved" & site_id == 42 & visit == 1 & rep == 2) # much higher than rep
+  ) %>%
+    select(-contains("flag")) %>%
+    group_by(site_id, visit, sample_type) %>% # this will aggregate replicates within each site and visit
+    summarise(
+      across(
+        c(ch4_ppm, co2_ppm, n2o_ppm),
+        ~ mean(.x, na.rm = TRUE)
+      ),
+      .groups = "drop"
+    ) %>%
+      rename(
+        ch4_gc = ch4_ppm,
+        co2_gc = co2_ppm,
+        n2o_gc = n2o_ppm
+      ) %>%
+        mutate(
+          ch4_gc_units = "ppm",
+          co2_gc_units = "ppm",
+          n2o_gc_units = "ppm"
+        ) %>%
+        pivot_wider(
+          names_from = sample_type,
+          values_from = -c(site_id, visit, sample_type),
+          names_glue = "{sample_type}_{.value}"
+        )
 
-# Merge
-eqAreaData <- merge(xtrCodes.gas.agg.c, eqAreaData, all = TRUE)
 
+  # Count air samples by site.
+  gc_all_corrected_agg %>%
+    filter(!is.na(air_ch4_gc)) %>%
+    count(site_id, name = "n_air_samples")
 
+  # Count trap samples by site.
+  gc_all_corrected_agg %>%
+    filter(!is.na(trap_ch4_gc)) %>%
+    count(site_id, name = "n_trap_samples") %>%
+    print(n = Inf)
+
+  # Count dissolved samples by site.
+  gc_all_corrected_agg %>%
+    filter(!is.na(dissolved_ch4_gc)) %>%
+    count(site_id, name = "n_dissolved_samples") %>%
+    print(n = Inf)
+
+gc_data <- gc_all_corrected_agg
+
+# RETURN DATA----
+  #   
+  return(gc_data)
 }
