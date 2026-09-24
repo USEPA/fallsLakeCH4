@@ -63,5 +63,29 @@ merge_data <- function(field_sheets, gc_data, chlorophyll_data, chem_data) {
     dim(dat_raw) # 449
   
   
+  
+# check dat_raw for missing values
+  # trap samples
+  # any time a value was recorded for trap_extn1 there should be a value for trap_ch4_gc
+  # Visit 4, sites 24, 14, 54, 59. CH4 was super low, seemingly in error. These values
+  # were filtered out in read_gc
+  # Visit 10, sites 47, 55. Field sheets show samples were collected, but they are not in
+  # GC data file.
+  # Visit 9, site 24, CH4 was super low, seemingly in error. These values
+  # were filtered out in read_gc
+  # Visit 14, site 47, filtered out because CH4 is tiny
+  # Visit 14, site 12, sample code in field sheets, but no evidence that sample was analyzed.
+  dat_raw |>
+    dplyr::filter(!is.na(trap_extn1) & is.na(trap_ch4_gc)) |>
+    dplyr::select(site_id, visit, trap_extn1, trap_ch4_gc)
+  
+  
+  # dissolved samples
+  # visit 11, sites 45, 47, 49, samples not analyzed
+  # "visit 1-site 1", "visit 10-site 4", "visit 6, site 47", samples not analyzed
+  dat_raw |>
+    dplyr::filter(!is.na(dg_extn_temp) & is.na(dissolved_ch4_gc)) |>
+    dplyr::select(site_id, visit, dg_extn_temp, dissolved_ch4_gc)
+
   return(dat_raw)
 }

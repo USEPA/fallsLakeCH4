@@ -88,6 +88,7 @@ gc_cin <- readr::read_delim(
   filter(sample != "0525FL02_AA4") %>%
   mutate(
     # Derive visit number from the corrected sample date.
+    # first four digits are always mmdd, although some samples have an optional two-digit year code after the mmdd.
     sample_mmdd = substr(sample, 1, 4),
     visit = visit_date_map$visit[
       match(
