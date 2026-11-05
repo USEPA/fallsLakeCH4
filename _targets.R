@@ -35,6 +35,8 @@ source("R/get_field_sheets.R")
 source("R/get_visit_date_map.R")
 source("R/get_gc_data.R")
 source("R/merge_data.R")
+source("R/impute_data.R")
+source("R/calculate_ebullition.R")
 
 
 # TARGETS PIPELINE----
@@ -106,6 +108,13 @@ tar_target(
     )
   ),
 
+  # database of missing barometric pressure data from NASA POWER API
+  # used in impute_data.R to fill in missing pressure values
+  tar_file(
+    name = nasa_pressure_file,
+    command = "data/nasa_pressure.csv"
+  ),
+
   ## field sheets---- 
   tar_target(
     name = field_sheets,
@@ -122,5 +131,18 @@ tar_target(
       chlorophyll_data = chlorophyll_data,
       chem_data = chem_data
     )
+  ),
+
+  tar_target(
+    name = dat_impute,
+    command = impute_data(
+      dat_raw = dat_raw,
+      nasa_pressure_file = nasa_pressure_file
+    )
+  ),
+
+  tar_target(
+    name = dat_ebullition,
+    command = calculate_ebullition(dat_impute)
   )
 )

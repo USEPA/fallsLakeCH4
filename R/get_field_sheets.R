@@ -230,7 +230,9 @@ get_field_sheets <- function() {
                 ".\\1"
               ),
               c("A$" = "1", "B$" = "2", "C$" = "3")
-            )
+            ),
+            # identify atmospheric pressure units
+            atm_pressure_units = "mmHg"
           )
       }) %>%
       map_dfr(., identity) %>%
@@ -308,6 +310,7 @@ field_sheets_joined <- dplyr::full_join(
 
    
   # ######NOT UPDATED FROM SuRGE!!!!!!!!!!!!!!
+  # I don't think this is needed for Falls Lake. Might need to address missing BP.
   # # create object containing all exetainer codes for readGc.R
   # all_exet <- bind_rows(
   #   dg_sheet %>% # DG exetainers

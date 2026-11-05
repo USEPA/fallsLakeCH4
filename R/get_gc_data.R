@@ -154,10 +154,16 @@ gc_all %>%
   ) %>%
   select(-contains("flag")) %>%
   pivot_longer(cols = !c(sample, site_id, visit, rep, sample_type)) %>%
-  filter(!is.na(value), name == "ch4_ppm", sample_type == "dissolved") %>% # change sample type...
-  ggplot(aes(visit, value)) + # value/10000 for trap
+  filter(!is.na(value), name == "ch4_ppm", sample_type == "trap") %>% # change sample type...
+  ggplot(aes(visit, value/10000)) + # value/10000 for trap
   geom_point() +
-  facet_wrap(~site_id, scales = "free")
+  facet_wrap(
+    ~site_id,
+    scales = "free",
+    labeller = ggplot2::as_labeller(
+      function(value) paste("site_id =", value)
+    )
+  )
 
  # flaged values?
  # these are all air samples with very reasonable results. will retain them.
@@ -178,9 +184,10 @@ gc_all_corrected_agg <- gc_all %>%
   # air samples
     !(sample_type == "air" & ch4_ppm > 4),
     # trap samples
-    !(sample_type == "trap" & site_id == 14 & visit == 4), # CH4 = 0.21
-    !(sample_type == "trap" & site_id == 24 & visit == 4), # CH4 = 0.07
-    !(sample_type == "trap" & site_id == 24 & visit == 9), # CH4 = 0.15
+    !(sample_type == "trap" & site_id == 10 & visit == 1), # CH4 = 0.25%
+    !(sample_type == "trap" & site_id == 14 & visit == 4), # CH4 = 0.21%
+    !(sample_type == "trap" & site_id == 24 & visit == 4), # CH4 = 0.07%
+    !(sample_type == "trap" & site_id == 24 & visit == 9), # CH4 = 0.15%
     !(sample_type == "trap" & site_id == 47 & visit == 14), # CH4 is tiny
     !(sample_type == "trap" & site_id == 52 & visit == 3), # CH4 is tiny
     !(sample_type == "trap" & site_id == 54 & visit == 4), # CH4 is tiny
