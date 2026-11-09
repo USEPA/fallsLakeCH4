@@ -68,11 +68,11 @@ merge_data <- function(field_sheets, gc_data, chlorophyll_data, chem_data) {
   # trap samples
   # any time a value was recorded for trap_extn1 there should be a value for trap_ch4_gc
   # Visit 4, sites 24, 14, 54, 59. CH4 was super low, seemingly in error. These values
-  # were filtered out in read_gc
+  # were filtered out in get_gc_data.R
   # Visit 10, sites 47, 55. Field sheets show samples were collected, but they are not in
   # GC data file.
   # Visit 9, site 24, CH4 was super low, seemingly in error. These values
-  # were filtered out in read_gc
+  # were filtered out in get_gc_data.R
   # Visit 14, site 47, filtered out because CH4 is tiny
   # Visit 14, site 12, sample code in field sheets, but no evidence that sample was analyzed.
   dat_raw |>

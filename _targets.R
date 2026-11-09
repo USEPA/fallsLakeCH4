@@ -23,7 +23,9 @@ tar_option_set(
     "janitor",
     "readxl",
     "fs",
-    "minpack.lm" # for non linear diffusion model
+    "minpack.lm", # for non linear diffusion model
+    "scales", # for ggplot time series plots
+    "plotly"
   )
 )
 
@@ -36,6 +38,8 @@ source("R/get_visit_date_map.R")
 source("R/get_gc_data.R")
 source("R/merge_data.R")
 source("R/impute_data.R")
+source("R/get_gga_data.R")
+source("R/clean_gga_data.R") # adjust modeling windows
 source("R/calculate_ebullition.R")
 
 
@@ -107,6 +111,21 @@ tar_target(
       epa_gc_data_file = epa_gc_data_file
     )
   ),
+
+  ## greenhouse gas analyzer data----
+  tar_target(
+    name = gga_data,
+    command = get_gga_data()
+  ),
+
+  tar_target(
+    name = gga_data_clean,
+    command = clean_gga_data(
+      gga_data = gga_data,
+      dat_impute = dat_impute
+    )
+  ),
+
 
   # database of missing barometric pressure data from NASA POWER API
   # used in impute_data.R to fill in missing pressure values

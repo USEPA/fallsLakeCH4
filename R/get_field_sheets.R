@@ -6,6 +6,26 @@ get_field_sheets <- function() {
   ## Function for reading 'data' tab of surgeData files----
 
   get_data_sheet <- function(paths) {
+    # Convert Excel time fractions to clock text without applying a local
+    # time-zone offset; preserve values that are already stored as text.
+    excel_time_to_text <- function(x) {
+      value <- as.character(x)
+      numeric_time <- suppressWarnings(as.numeric(value))
+      is_excel_time <- !is.na(numeric_time) & numeric_time >= 0 & numeric_time < 1
+
+      value[is_excel_time] <- format(
+        as.POSIXct(
+          numeric_time[is_excel_time] * 86400,
+          origin = "1899-12-30",
+          tz = "UTC"
+        ),
+        "%H:%M:%S",
+        tz = "UTC"
+      )
+
+      value
+    }
+
     #d <-
     fs::dir_ls(
       path = paths, # see above
@@ -13,16 +33,35 @@ get_field_sheets <- function() {
       recurse = TRUE
     ) %>% # look in all subdirectories
       .[!grepl(c(".pdf|.docx"), .)] %>% # remove pdf and .docx review files
-      #.[12:13] %>%
+      #.[14] %>%
       # map will read each file in fs_path list generated above
       # imap passes the element name (here, the filename) to the function
       purrr::imap(
-        ~ readxl::read_xlsx(
-          .x,
-          skip = 1,
-          sheet = "data",
-          na = c("NA", "", "N/A", "n/a")
-        ) %>%
+        ~ {
+          # Read date/time columns as text so Excel's automatic type guessing
+          # does not convert inconsistent spreadsheet values before cleaning.
+          column_names <- names(readxl::read_xlsx(
+            .x,
+            skip = 1,
+            sheet = "data",
+            n_max = 0
+          ))
+
+          time_columns <- column_names[grepl("time", column_names, ignore.case = TRUE)]
+
+          readxl::read_xlsx(
+            .x,
+            skip = 1,
+            sheet = "data",
+            col_types = ifelse(
+              grepl("date|time", column_names, ignore.case = TRUE),
+              "text",
+              "guess"
+            ),
+            na = c("NA", "", "N/A", "n/a")
+          ) %>%
+          # Normalize Excel numeric times while preserving text values.
+          mutate(across(all_of(time_columns), excel_time_to_text)) %>%
           # Assign the filename to the visit column for now
           mutate(
             visit = .y,
@@ -45,6 +84,7 @@ get_field_sheets <- function() {
               TRUE ~ 999999999
             )
           ) # check for this value in final close mutate
+        }
       ) %>% # close imap
       # format data
       map(., function(x) {
@@ -107,40 +147,28 @@ get_field_sheets <- function() {
             across(contains("depth"), ~ round(.x, 1))
           ) %>% # round to nearest tenth of meter
           # Format date and time objects
-          # Time recorded from LGR, which is eastern. Confirmed by comparing LGR times
-          # recorded on field sheets with GPS data recorded in UTC.
+          # Field-sheet and GGA clock times are recorded in Eastern time.
           mutate(
             across(contains("date"), ~ as.Date(.x, format = "%m.%d.%Y")), # convert date to as.Date
-            across(contains("time"), ~ format(.x, format = "%H:%M:%S")), # convert time to character
-            tz = lutz::tz_lookup_coords(lat, long, warn = FALSE)
-          ) %>% # this gets tz based on location
-          # need to replace NA with a value, else force_tz throws error
-          # `fill` will replace NA with non-NA value in column. Code assumes only one tz per lake
-          # check that assumption for Missouri River impoundments
-          fill(tz, .direction = "updown") %>%
-          # referencing tz via the tz argument in as.POSIXct throws an error. I don't really
-          # understand why. Here we create date_time object without time zone, then enforce
-          # local time zone with `force_tz`, finally display in UTC via `with_tz`
+            across(contains("time"), ~ format(.x, format = "%H:%M:%S")) # convert time to character
+          ) %>%
           mutate(
             trap_deply_date_time = as.POSIXct(
               x = paste0(trap_deply_date, trap_deply_time),
-              format = "%Y-%m-%d%H:%M:%S"
+              format = "%Y-%m-%d%H:%M:%S",
+              tz = "America/New_York"
             ),
             trap_rtrvl_date_time = as.POSIXct(
               x = paste0(trap_rtrvl_date, trap_rtrvl_time),
-              format = "%Y-%m-%d%H:%M:%S"
+              format = "%Y-%m-%d%H:%M:%S",
+              tz = "America/New_York"
             ),
             chamb_deply_date_time = as.POSIXct(
               x = paste0(chamb_deply_date, chamb_deply_time),
-              format = "%Y-%m-%d%H:%M:%S"
-            ),
-            across(
-              contains("date_time"),
-              ~ force_tz(.x, tzone = tz) %>%
-                with_tz(., tzone = "UTC")
+              format = "%Y-%m-%d%H:%M:%S",
+              tz = "America/New_York"
             )
           ) %>%
-          select(-tz) %>% # remove unneeded tz variable
           # chemistry data uses "flags" rather than "flag".  be consistent
           rename_with(~ sub("flag", "flags", .), .cols = contains("flag"))
       }) %>%
