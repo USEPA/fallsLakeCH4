@@ -1,7 +1,11 @@
-calculate_ebullition <- function(dat_impute) {
+calculate_ebullition <- function(dat_raw) {
 
 # First calculate volumetric ebullition rate (mL/hr/m2)
-  dat_impute <- dat_impute %>%
+  dat_ebullition <- dat_raw %>%
+    select(site_id, visit, trap_volume, trap_rtrvl_date_time, trap_deply_date_time, 
+      trap_ch4_gc, trap_co2_gc, trap_n2o_gc, 
+      atm_pressure, 
+      temp_s) %>% # assume trap gas temperature equals shallow water temperature
     mutate(
       volumetric_ebullition = trap_volume /
         (as.numeric(
@@ -41,15 +45,12 @@ mass_rate <- function(X1, choice1){
     pull(trap_n2o_gc)
   
   # barometric pressure needed: n=PV/RT
-  bp <- ifelse(is.na(mean(X1$atm_pressure, na.rm=TRUE)),
-               1,
-               mean(X1$atm_pressure, na.rm=TRUE)/760) #mmHg
+  # see get_bp_data.R for how missing barometric pressure was imputed
+  bp <- X1$atm_pressure #mmHg
   
   # temperature needed
-  air_temperature <- ifelse(is.na(X1$air_temperature),
-                     273.15 + 20, # assume 20C if not measured
-                     273.15 + X1$air_temperature)
-  
+  air_temperature <- X1$temp_s # assume trap gas temperature equals shallow water temperature
+
   # convert 1mL to moles
   mL_to_mmoles <- ((bp*0.001)/(0.082058 * air_temperature)) * 1000      #1mL = 0.001L; *1000 to convt to mmol
   
@@ -66,7 +67,7 @@ mass_rate <- function(X1, choice1){
 }
 
   # calculate mass ebullition rate for each gas
-  dat_ebullition <- dat_impute %>%
+  dat_ebullition <- dat_ebullition %>%
     mutate(
       ch4_ebullition = mass_rate(., "ch4"),
       ch4_ebullition_units = "mg_m2_hr",

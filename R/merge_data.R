@@ -1,4 +1,4 @@
-merge_data <- function(field_sheets, gc_data, chlorophyll_data, chem_data) {
+merge_data <- function(field_sheets, gc_data, chlorophyll_data, chem_data, bp_data) {
   # inspect data----
   # are all site_id x visit combinations in gc_data present in field_sheets?
   # yes
@@ -29,16 +29,25 @@ merge_data <- function(field_sheets, gc_data, chlorophyll_data, chem_data) {
         dplyr::distinct(site_id, visit),
       by = c("site_id", "visit")
     )
+
+  # are all site_id x visit combinations in bp_data present in field_sheets.
+  # yes
+  bp_data |>
+    dplyr::distinct(site_id, visit) |>
+    dplyr::anti_join(
+      field_sheets |>
+        dplyr::distinct(site_id, visit),
+      by = c("site_id", "visit")
+    )
   
   # merge data----
   # 1. field sheets and gc_data
   dat_raw <- field_sheets |>
     dplyr::full_join(
       gc_data,
-      by = c("site_id", "visit"),
-      suffix = c("_field", "_gc")
+      by = c("site_id", "visit")
     )
-  dim(gc_data) # 247
+  dim(gc_data) # 246
   dim(field_sheets) # 449
   dim(dat_raw) # 449
 
@@ -46,8 +55,7 @@ merge_data <- function(field_sheets, gc_data, chlorophyll_data, chem_data) {
   dat_raw <- dat_raw |>
     dplyr::full_join(
       chlorophyll_data,
-      by = c("site_id", "visit"),
-      suffix = c("", "_chlorophyll")
+      by = c("site_id", "visit")
     )
     dim(chlorophyll_data) # 144
     dim(dat_raw) # 449
@@ -62,6 +70,19 @@ merge_data <- function(field_sheets, gc_data, chlorophyll_data, chem_data) {
     dim(chem_data) # 180
     dim(dat_raw) # 449
   
+  
+  # 4. add barometric pressure data
+  dat_raw <- dat_raw |>
+    # field sheets contains patchy records of atm_pressure whereas
+    # bp_data contains a full record. Remove the patchy records from field sheets
+    # then merge with bp_data
+    dplyr::select(-atm_pressure, -atm_pressure_units) |>
+    dplyr::full_join(
+      bp_data,
+      by = c("site_id", "visit")
+    )
+    dim(bp_data) # 449
+    dim(dat_raw) # 449
   
   
 # check dat_raw for missing values

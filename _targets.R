@@ -34,13 +34,15 @@ tar_option_set(
 source("R/get_chlorophyll_data.R")
 source("R/get_chem_data.R")
 source("R/get_field_sheets.R")
+source("R/get_bp_data.R") # impute missing barometric pressure
 source("R/get_visit_date_map.R")
 source("R/get_gc_data.R")
 source("R/merge_data.R")
-source("R/impute_data.R")
 source("R/get_gga_data.R")
 source("R/clean_gga_data.R") # adjust modeling windows
 source("R/calculate_ebullition.R")
+source("R/calculate_diffusion.R")
+
 
 
 # TARGETS PIPELINE----
@@ -122,16 +124,8 @@ tar_target(
     name = gga_data_clean,
     command = clean_gga_data(
       gga_data = gga_data,
-      dat_impute = dat_impute
+      dat_raw = dat_raw
     )
-  ),
-
-
-  # database of missing barometric pressure data from NASA POWER API
-  # used in impute_data.R to fill in missing pressure values
-  tar_file(
-    name = nasa_pressure_file,
-    command = "data/nasa_pressure.csv"
   ),
 
   ## field sheets---- 
@@ -139,29 +133,49 @@ tar_target(
     name = field_sheets,
     command = get_field_sheets() # no argument needed since the function reads in the files from the data folder
   ),
+  
+  # database of missing barometric pressure data from NASA POWER API
+  # used in impute_data.R to fill in missing pressure values
+  tar_file(
+    name = nasa_pressure_file,
+    command = "data/nasa_pressure.csv"
+  ),
 
-  # MUNGE DATA----
-  ## merge data----
+  tar_target(
+    name = bp_data,
+    command = get_bp_data(
+      field_sheets = field_sheets,
+      nasa_pressure_file = nasa_pressure_file
+    )
+  ),
+
+
+  ## merge primary raw data----
   tar_target(
     name = dat_raw,
     command = merge_data(
       field_sheets = field_sheets,
       gc_data = gc_data,
       chlorophyll_data = chlorophyll_data,
-      chem_data = chem_data
+      chem_data = chem_data,
+      bp_data = bp_data
     )
   ),
 
-  tar_target(
-    name = dat_impute,
-    command = impute_data(
-      dat_raw = dat_raw,
-      nasa_pressure_file = nasa_pressure_file
-    )
-  ),
-
+# DERIVED QUANTITIES----
+  ## calculate ebullition----
   tar_target(
     name = dat_ebullition,
-    command = calculate_ebullition(dat_impute)
+    command = calculate_ebullition(dat_raw)
+  ),
+
+    ## calculate diffusion----
+  tar_target(
+    name = dat_diffusion,
+    command = calculate_diffusion(
+      gga_data_clean = gga_data_clean,
+      dat_raw = dat_raw
+    )
   )
+
 )

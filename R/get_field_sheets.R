@@ -5,178 +5,185 @@ get_field_sheets <- function() {
   # FIELD DATA-----
   ## Function for reading 'data' tab of surgeData files----
 
-  get_data_sheet <- function(paths) {
-    # Convert Excel time fractions to clock text without applying a local
-    # time-zone offset; preserve values that are already stored as text.
-    excel_time_to_text <- function(x) {
-      value <- as.character(x)
-      numeric_time <- suppressWarnings(as.numeric(value))
-      is_excel_time <- !is.na(numeric_time) & numeric_time >= 0 & numeric_time < 1
-
-      value[is_excel_time] <- format(
-        as.POSIXct(
-          numeric_time[is_excel_time] * 86400,
-          origin = "1899-12-30",
-          tz = "UTC"
-        ),
-        "%H:%M:%S",
+get_data_sheet <- function(paths) {
+  # Convert Excel time fractions to clock text without applying a local
+  # time-zone offset; preserve values that are already stored as text.
+  excel_time_to_text <- function(x) {
+    value <- as.character(x)
+    numeric_time <- suppressWarnings(as.numeric(value))
+    is_excel_time <- !is.na(numeric_time) & numeric_time >= 0 & numeric_time < 1
+    
+    value[is_excel_time] <- format(
+      as.POSIXct(
+        numeric_time[is_excel_time] * 86400,
+        origin = "1899-12-30",
         tz = "UTC"
-      )
-
-      value
-    }
-
-    #d <-
-    fs::dir_ls(
-      path = paths, # see above
-      regexp = 'surgeData1033', # file names containing this pattern
-      recurse = TRUE
-    ) %>% # look in all subdirectories
-      .[!grepl(c(".pdf|.docx"), .)] %>% # remove pdf and .docx review files
-      #.[14] %>%
-      # map will read each file in fs_path list generated above
-      # imap passes the element name (here, the filename) to the function
-      purrr::imap(
-        ~ {
-          # Read date/time columns as text so Excel's automatic type guessing
-          # does not convert inconsistent spreadsheet values before cleaning.
-          column_names <- names(readxl::read_xlsx(
-            .x,
-            skip = 1,
-            sheet = "data",
-            n_max = 0
-          ))
-
-          time_columns <- column_names[grepl("time", column_names, ignore.case = TRUE)]
-
-          readxl::read_xlsx(
-            .x,
-            skip = 1,
-            sheet = "data",
-            col_types = ifelse(
-              grepl("date|time", column_names, ignore.case = TRUE),
-              "text",
-              "guess"
-            ),
-            na = c("NA", "", "N/A", "n/a")
-          ) %>%
-          # Normalize Excel numeric times while preserving text values.
-          mutate(across(all_of(time_columns), excel_time_to_text)) %>%
-          # Assign the filename to the visit column for now
-          mutate(
-            visit = .y,
-            visit = case_when(
-              str_detect(visit, "September2017") ~ 1,
-              str_detect(visit, "October2017") ~ 2,
-              str_detect(visit, "November2017") ~ 3,
-              str_detect(visit, "13January") ~ 4,
-              str_detect(visit, "24January") ~ 5,
-              str_detect(visit, "February2018") ~ 6,
-              str_detect(visit, "March2018") ~ 7,
-              str_detect(visit, "April2018") ~ 8,
-              str_detect(visit, "May2018") ~ 9,
-              str_detect(visit, "June2018") ~ 10,
-              str_detect(visit, "July2018") ~ 11,
-              str_detect(visit, "August2018") ~ 12,
-              str_detect(visit, "September2018") ~ 13,
-              str_detect(visit, "October2018") ~ 14,
-              str_detect(visit, "November2018") ~ 15,
-              TRUE ~ 999999999
-            )
-          ) # check for this value in final close mutate
-        }
-      ) %>% # close imap
-      # format data
-      map(., function(x) {
-        janitor::clean_names(x) %>%
-          rename_with(
-            ~ gsub("chl", "chla_sonde", .), #specify sonde
-            contains("chl")
-          ) %>%
-          rename_with(
-            ~ gsub("phyc", "phycocyanin_sonde", .), #specify sonde
-            contains("phyc")
-          ) %>%
-          # format lake_id and site_id.  See Wiki
-          mutate(
-            site_id = as.numeric(gsub(".*?([0-9]+).*", "\\1", site_id)),
-            long = case_when(
-              long > 0 ~ long * -1, # longitude should be negative
-              TRUE ~ long
-            ),
-            # Remove a leading mmddyyyy date and prefix the visit number.
-            across(
-              c(
-                trap_extn1,
-                trap_extn2,
-                trap_extn3,
-                air_extn_1,
-                air_extn_2,
-                air_extn_3
-              ),
-              ~ stringr::str_replace_all(
-                stringr::str_replace(
-                  case_when(
-                    is.na(.) ~ NA_character_,
-                    stringr::str_detect(
-                      as.character(.),
-                      "^\\d{8}"
-                    ) ~ toupper(paste0(
-                      "visit.",
-                      visit,
-                      stringr::str_remove(as.character(.), "^\\d{8}")
-                    )),
-                    TRUE ~ toupper(paste0(
-                      "visit.",
-                      visit,
-                      ".",
-                      as.character(.)
-                    ))
-                  ),
-                  "\\.0([123])$",
-                  ".\\1"
-                ),
-                c("A$" = "1", "B$" = "2", "C$" = "3")
-              )
-            ),
-            # Empty columns cause data-class conflicts; make classes identical
-            across(c(lat, long), ~ as.numeric(.)),
-            across(contains("comment"), ~ as.character(.)),
-            across(contains("flag"), ~ as.character(.)),
-            across(contains("extn"), ~ as.character(.)),
-            across(contains("depth"), ~ round(.x, 1))
-          ) %>% # round to nearest tenth of meter
-          # Format date and time objects
-          # Field-sheet and GGA clock times are recorded in Eastern time.
-          mutate(
-            across(contains("date"), ~ as.Date(.x, format = "%m.%d.%Y")), # convert date to as.Date
-            across(contains("time"), ~ format(.x, format = "%H:%M:%S")) # convert time to character
-          ) %>%
-          mutate(
-            trap_deply_date_time = as.POSIXct(
-              x = paste0(trap_deply_date, trap_deply_time),
-              format = "%Y-%m-%d%H:%M:%S",
-              tz = "America/New_York"
-            ),
-            trap_rtrvl_date_time = as.POSIXct(
-              x = paste0(trap_rtrvl_date, trap_rtrvl_time),
-              format = "%Y-%m-%d%H:%M:%S",
-              tz = "America/New_York"
-            ),
-            chamb_deply_date_time = as.POSIXct(
-              x = paste0(chamb_deply_date, chamb_deply_time),
-              format = "%Y-%m-%d%H:%M:%S",
-              tz = "America/New_York"
-            )
-          ) %>%
-          # chemistry data uses "flags" rather than "flag".  be consistent
-          rename_with(~ sub("flag", "flags", .), .cols = contains("flag"))
-      }) %>%
-      map_dfr(., bind_rows) %>%
-      select(-lake_id) # remove lake identifier from field-sheet output
+      ),
+      "%H:%M:%S",
+      tz = "UTC"
+    )
+    
+    value
   }
+  
+  #d <-
+  fs::dir_ls(
+    path = paths, # see above
+    regexp = 'surgeData1033', # file names containing this pattern
+    recurse = TRUE
+  ) %>% # look in all subdirectories
+  .[!grepl(c(".pdf|.docx"), .)] %>% # remove pdf and .docx review files
+  #.[14] %>%
+  # map will read each file in fs_path list generated above
+  # imap passes the element name (here, the filename) to the function
+  purrr::imap(
+    ~ {
+      # Read date/time columns as text so Excel's automatic type guessing
+      # does not convert inconsistent spreadsheet values before cleaning.
+      column_names <- names(readxl::read_xlsx(
+        .x,
+        skip = 1,
+        sheet = "data",
+        n_max = 0
+      ))
+      
+      time_columns <- column_names[grepl("time", column_names, ignore.case = TRUE)]
+      
+      readxl::read_xlsx(
+        .x,
+        skip = 1,
+        sheet = "data",
+        col_types = ifelse(
+          grepl("date|time", column_names, ignore.case = TRUE),
+          "text",
+          "guess"
+        ),
+        na = c("NA", "", "N/A", "n/a")
+      ) %>%
+      # Normalize Excel numeric times while preserving text values.
+      mutate(across(all_of(time_columns), excel_time_to_text)) %>%
+      # Assign the filename to the visit column for now
+      mutate(
+        visit = .y,
+        visit = case_when(
+          str_detect(visit, "September2017") ~ 1,
+          str_detect(visit, "October2017") ~ 2,
+          str_detect(visit, "November2017") ~ 3,
+          str_detect(visit, "13January") ~ 4,
+          str_detect(visit, "24January") ~ 5,
+          str_detect(visit, "February2018") ~ 6,
+          str_detect(visit, "March2018") ~ 7,
+          str_detect(visit, "April2018") ~ 8,
+          str_detect(visit, "May2018") ~ 9,
+          str_detect(visit, "June2018") ~ 10,
+          str_detect(visit, "July2018") ~ 11,
+          str_detect(visit, "August2018") ~ 12,
+          str_detect(visit, "September2018") ~ 13,
+          str_detect(visit, "October2018") ~ 14,
+          str_detect(visit, "November2018") ~ 15,
+          TRUE ~ 999999999
+        )
+      ) # check for this value in final close mutate
+    }
+  ) %>% # close imap
+  # format data
+  map(., function(x) {
+    janitor::clean_names(x) %>%
+    rename_with(
+      ~ gsub("chl", "chla_sonde", .), #specify sonde
+      contains("chl")
+    ) %>%
+    rename_with(
+      ~ gsub("phyc", "phycocyanin_sonde", .), #specify sonde
+      contains("phyc")
+    ) %>%
+    # format lake_id and site_id.  See Wiki
+    mutate(
+      site_id = as.numeric(gsub(".*?([0-9]+).*", "\\1", site_id)),
+      long = case_when(
+        long > 0 ~ long * -1, # longitude should be negative
+        TRUE ~ long
+      ),
+      # Remove a leading mmddyyyy date and prefix the visit number.
+      across(
+        c(
+          trap_extn1,
+          trap_extn2,
+          trap_extn3,
+          air_extn_1,
+          air_extn_2,
+          air_extn_3
+        ),
+        ~ stringr::str_replace_all(
+          stringr::str_replace(
+            case_when(
+              is.na(.) ~ NA_character_,
+              stringr::str_detect(
+                as.character(.),
+                "^\\d{8}"
+              ) ~ toupper(paste0(
+                "visit.",
+                visit,
+                stringr::str_remove(as.character(.), "^\\d{8}")
+              )),
+              TRUE ~ toupper(paste0(
+                "visit.",
+                visit,
+                ".",
+                as.character(.)
+              ))
+            ),
+            "\\.0([123])$",
+            ".\\1"
+          ),
+          c("A$" = "1", "B$" = "2", "C$" = "3")
+        )
+      ), # close across
+      # Empty columns cause data-class conflicts; make classes identical
+      across(c(lat, long), ~ as.numeric(.)),
+      across(contains("comment"), ~ as.character(.)),
+      across(contains("flag"), ~ as.character(.)),
+      across(contains("extn"), ~ as.character(.)),
+      across(contains("depth"), ~ round(.x, 1))
+    ) %>% # round to nearest tenth of meter
+    # Format date and time objects
+    # Field-sheet and GGA clock times are recorded in Eastern time.
+    mutate(
+      across(contains("date"), ~ as.Date(.x, format = "%m.%d.%Y")), # convert date to as.Date
+      across(contains("time"), ~ format(.x, format = "%H:%M:%S")) # convert time to character
+    ) %>%
+    mutate(
+      trap_deply_date_time = as.POSIXct(
+        x = paste0(trap_deply_date, trap_deply_time),
+        format = "%Y-%m-%d%H:%M:%S",
+        tz = "America/New_York"
+      ),
+      trap_rtrvl_date_time = as.POSIXct(
+        x = paste0(trap_rtrvl_date, trap_rtrvl_time),
+        format = "%Y-%m-%d%H:%M:%S",
+        tz = "America/New_York"
+      ),
+      chamb_deply_date_time = as.POSIXct(
+        x = paste0(chamb_deply_date, chamb_deply_time),
+        format = "%Y-%m-%d%H:%M:%S",
+        tz = "America/New_York"
+      )
+    ) %>%
+    # calculate chamber volume
+    mutate(
+      # Calculate chamber volume based on relationship between water level
+      # and volume.  See chamberDesign.xlsx in project folder.
+      chamb_vol = (42.057 + (-0.2189 * rowMeans(select(., chamb_grad_a, chamb_grad_b), na.rm = TRUE))),  #
+      chamb_vol_units = "l"
+    ) %>%
+    # chemistry data uses "flags" rather than "flag".  be consistent
+    rename_with(~ sub("flag", "flags", .), .cols = contains("flag"))
+  }) %>%
+  map_dfr(., bind_rows) %>%
+  select(-lake_id) # remove lake identifier from field-sheet output
+}
 
-  ## Read 'data' tab of surgeData files-----
+  ## Read 'data' tab -----
   fld_sheet <- get_data_sheet(paths = paths)
   unique(fld_sheet$site_id)
   unique(fld_sheet$visit)
